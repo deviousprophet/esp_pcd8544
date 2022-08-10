@@ -46,6 +46,24 @@ typedef enum {
     PCD8544_FONT_5x7,
 } pcd8544_font_t;
 
+typedef enum {
+    PCD8544_PIXEL_WHITE,
+    PCD8544_PIXEL_BLACK,
+} pcd8544_pixel_color_t;
+
+typedef enum {
+    PCD8544_ALIGN_CENTER,
+    PCD8544_ALIGN_LEFT,
+    PCD8544_ALIGN_RIGHT,
+    PCD8544_ALIGN_TOP,
+    PCD8544_ALIGN_BOTTOM,
+    PCD8544_ALIGN_TOP_LEFT,
+    PCD8544_ALIGN_TOP_RIGHT,
+    PCD8544_ALIGN_BOTTOM_LEFT,
+    PCD8544_ALIGN_BOTTOM_RIGHT,
+    PCD8544_ALIGN_MAX,
+} pcd8544_obj_align_t;
+
 typedef struct {
     int rst_gpio_num; /*!< GPIO used for resetting the display */
     int ce_gpio_num;  /*!< GPIO used for CE line */
@@ -53,7 +71,6 @@ typedef struct {
     int bkl_gpio_num; /*!< GPIO used for backlight control */
 
     struct {
-        uint8_t pwm_bkl         : 1; /*!< Use PWM on backlight GPIO */
         uint8_t rst_active_high : 1; /*!< Display reset with logic level HIGH */
         uint8_t bkl_active_high : 1; /*!< Backlight ON with logic level HIGH */
         uint8_t                 : 6; /*!< Reserved */
@@ -73,21 +90,34 @@ esp_err_t pcd8544_invert(bool invert);
 
 esp_err_t pcd8544_set_contrast(uint8_t contrast);
 
+esp_err_t pcd8544_set_backlight(uint8_t brightness);
+
+esp_err_t pcd8544_set_backlight_fade(uint8_t brightness, int max_fade_time_ms,
+                                     bool wait_fade_done);
+
 esp_err_t pcd8544_goto_xy(uint8_t x, uint8_t y);
 
-esp_err_t pcd8544_putc(pcd8544_font_t font, char c);
+esp_err_t pcd8544_putc(pcd8544_font_t font, pcd8544_pixel_color_t color,
+                       char c);
 
-esp_err_t pcd8544_puts(pcd8544_font_t font, const char* format, ...)
-    __attribute__((format(printf, 2, 3)));
+esp_err_t pcd8544_puts(pcd8544_font_t font, pcd8544_pixel_color_t color,
+                       const char* format, ...)
+    __attribute__((format(printf, 3, 4)));
 
-esp_err_t pcd8544_draw_pixel(uint8_t x, uint8_t y);
+esp_err_t pcd8544_draw_pixel(uint8_t x, uint8_t y, pcd8544_pixel_color_t color);
 
-esp_err_t pcd8544_draw_line(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1);
+esp_err_t pcd8544_draw_line(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1,
+                            pcd8544_pixel_color_t color);
 
 esp_err_t pcd8544_draw_rectagle(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1,
-                                bool filled);
+                                pcd8544_pixel_color_t color, bool filled);
 
-esp_err_t pcd8544_draw_circle(uint8_t x0, uint8_t y0, uint8_t r, bool filled);
+esp_err_t pcd8544_draw_circle(uint8_t x0, uint8_t y0, uint8_t r,
+                              pcd8544_pixel_color_t color, bool filled);
+
+esp_err_t pcd8544_scroll(int8_t dx, int8_t dy);
+
+esp_err_t pcd8544_scroll_smooth(uint8_t dx, uint8_t dy, int max_scroll_time_ms);
 
 #ifdef __cplusplus
 }

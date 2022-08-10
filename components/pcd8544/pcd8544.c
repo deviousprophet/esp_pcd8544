@@ -9,27 +9,21 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "pcd8544_fonts.h"
-
-#ifndef MIN
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
-#endif
-
-#ifndef MAX
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
-#endif
+#include "sys/param.h"
 
 static const char* TAG = "pcd8544";
 
 typedef struct {
-    uint8_t              buffer[PCD8544_BUFFER_SIZE];
-    uint8_t              update_xmin;
-    uint8_t              update_xmax;
-    uint8_t              update_ymin;
-    uint8_t              update_ymax;
-    uint8_t              _x;
-    uint8_t              _y;
-    pcd8544_io_config_t* io;
-    spi_device_handle_t  spi_handle;
+    uint8_t                buffer[PCD8544_BUFFER_SIZE];
+    uint8_t                update_xmin;
+    uint8_t                update_xmax;
+    uint8_t                update_ymin;
+    uint8_t                update_ymax;
+    uint8_t                _x;
+    uint8_t                _y;
+    ledc_channel_config_t* backlight_pwm;
+    pcd8544_io_config_t*   io;
+    spi_device_handle_t    spi_handle;
 } pcd8544_handle_t;
 
 pcd8544_handle_t* g_handle = NULL;
@@ -59,10 +53,10 @@ esp_err_t pcd8544_send_data(uint8_t data) {
 
 void pcd8544_update_area(uint8_t xMin, uint8_t yMin, uint8_t xMax,
                          uint8_t yMax) {
-    if (xMin < g_handle->update_xmin) g_handle->update_xmin = xMin;
-    if (xMax > g_handle->update_xmax) g_handle->update_xmax = xMax;
-    if (yMin < g_handle->update_ymin) g_handle->update_ymin = yMin;
-    if (yMax > g_handle->update_ymax) g_handle->update_ymax = yMax;
+    g_handle->update_xmin = MIN(xMin, g_handle->update_xmin);
+    g_handle->update_ymin = MIN(yMin, g_handle->update_ymin);
+    g_handle->update_xmax = MAX(xMax, g_handle->update_xmax);
+    g_handle->update_ymax = MAX(yMax, g_handle->update_ymax);
 }
 
 esp_err_t pcd8544_reset(void) {
@@ -119,14 +113,31 @@ esp_err_t pcd8544_init(const spi_host_device_t    spi_host,
     gpio_set_direction(io_config->dc_gpio_num, GPIO_MODE_OUTPUT);
 
     if (io_config->bkl_gpio_num != -1) {
-        if (io_config->flags.pwm_bkl) {
-            // ledc config
+        ledc_timer_config_t ledc_timer = {
+            .duty_resolution = LEDC_TIMER_13_BIT,     // resolution of PWM duty
+            .freq_hz         = 5000,                  // frequency of PWM signal
+            .speed_mode      = LEDC_HIGH_SPEED_MODE,  // timer mode
+            .timer_num       = LEDC_TIMER_0,          // timer index
+            .clk_cfg         = LEDC_AUTO_CLK,  // Auto select the source clock
+        };
+        // Set configuration of timer0 for high speed channels
+        ledc_timer_config(&ledc_timer);
 
-        } else {
-            gpio_set_direction(io_config->bkl_gpio_num, GPIO_MODE_OUTPUT);
-            gpio_set_level(io_config->bkl_gpio_num,
-                           io_config->flags.bkl_active_high);
-        }
+        g_handle->backlight_pwm = calloc(1, sizeof(ledc_channel_config_t));
+        g_handle->backlight_pwm->channel    = LEDC_CHANNEL_0;
+        g_handle->backlight_pwm->duty       = 0;
+        g_handle->backlight_pwm->gpio_num   = io_config->bkl_gpio_num;
+        g_handle->backlight_pwm->speed_mode = LEDC_HIGH_SPEED_MODE;
+        g_handle->backlight_pwm->hpoint     = 0;
+        g_handle->backlight_pwm->timer_sel  = LEDC_TIMER_0;
+        g_handle->backlight_pwm->flags.output_invert =
+            1 - io_config->flags.bkl_active_high;
+
+        // Set LED Controller with previously prepared configuration
+        ledc_channel_config(g_handle->backlight_pwm);
+
+        // Initialize fade service
+        ledc_fade_func_install(0);
 
     } else {
         ESP_LOGW(TAG, "Backlight is not used");
@@ -135,22 +146,19 @@ esp_err_t pcd8544_init(const spi_host_device_t    spi_host,
     // Reset LCD
     pcd8544_reset();
 
-    // Go in extended mode
-    pcd8544_send_cmd(PCD8544_FUNCTIONSET | PCD8544_EXTENDEDINSTRUCTION);
+    // // Go in extended mode
+    // pcd8544_send_cmd(PCD8544_FUNCTIONSET | PCD8544_EXTENDEDINSTRUCTION);
 
-    // LCD bias select
-    pcd8544_send_cmd(PCD8544_SETBIAS | 0x4);
+    // // LCD bias select
+    // pcd8544_send_cmd(PCD8544_SETBIAS | 0x4);
 
-    // Set VOP
-    pcd8544_send_cmd(PCD8544_SETVOP | PCD8544_DEFAULT_CONTRAST);
+    // // Set VOP
+    // pcd8544_send_cmd(PCD8544_SETVOP | PCD8544_DEFAULT_CONTRAST);
 
     // Normal mode
     pcd8544_send_cmd(PCD8544_FUNCTIONSET);
 
     // Set display to Normal
-    pcd8544_send_cmd(PCD8544_DISPLAYCONTROL | PCD8544_DISPLAYNORMAL);
-
-    // Normal display
     pcd8544_send_cmd(PCD8544_DISPLAYCONTROL | PCD8544_DISPLAYNORMAL);
 
     // Clear display
@@ -172,6 +180,7 @@ esp_err_t pcd8544_deinit(void) {
     gpio_reset_pin(g_handle->io->bkl_gpio_num);
     gpio_reset_pin(g_handle->io->dc_gpio_num);
 
+    free(g_handle->backlight_pwm);
     free(g_handle->io);
     free(g_handle);
     return ESP_OK;
@@ -181,8 +190,7 @@ esp_err_t pcd8544_clear(void) {
     if (!g_handle) return ESP_ERR_INVALID_STATE;
 
     pcd8544_goto_xy(0, 0);
-    for (uint16_t i = 0; i < PCD8544_BUFFER_SIZE; i++)
-        g_handle->buffer[i] = 0x00;
+    memset(g_handle->buffer, 0, PCD8544_BUFFER_SIZE);
 
     pcd8544_update_area(0, 0, PCD8544_H_RES_MAX - 1, PCD8544_V_RES_MAX - 1);
     pcd8544_flush();
@@ -225,6 +233,62 @@ esp_err_t pcd8544_invert(bool invert) {
 
 esp_err_t pcd8544_set_contrast(uint8_t contrast) {
     if (!g_handle) return ESP_ERR_INVALID_STATE;
+
+    // Go in extended mode
+    pcd8544_send_cmd(PCD8544_FUNCTIONSET | PCD8544_EXTENDEDINSTRUCTION);
+
+    // Set VOP
+    contrast = MIN(0, 0x7F);
+    pcd8544_send_cmd(PCD8544_SETVOP | contrast);
+
+    // Normal mode
+    pcd8544_send_cmd(PCD8544_FUNCTIONSET);
+
+    return ESP_OK;
+}
+
+esp_err_t pcd8544_set_backlight(uint8_t brightness) {
+    esp_err_t err;
+
+    err = ledc_set_duty(g_handle->backlight_pwm->speed_mode,
+                        g_handle->backlight_pwm->channel,
+                        (MIN(brightness, 100) * 8192) / 100);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "<%s> ledc_set_duty failed", esp_err_to_name(err));
+        return err;
+    }
+
+    err = ledc_update_duty(g_handle->backlight_pwm->speed_mode,
+                           g_handle->backlight_pwm->channel);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "<%s> ledc_update_duty failed", esp_err_to_name(err));
+        return err;
+    }
+
+    return ESP_OK;
+}
+
+esp_err_t pcd8544_set_backlight_fade(uint8_t brightness, int max_fade_time_ms,
+                                     bool wait_fade_done) {
+    esp_err_t err;
+
+    err = ledc_set_fade_with_time(
+        g_handle->backlight_pwm->speed_mode, g_handle->backlight_pwm->channel,
+        (MIN(brightness, 100) * 8192) / 100, max_fade_time_ms);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "<%s> ledc_set_fade_with_time failed",
+                 esp_err_to_name(err));
+        return err;
+    }
+
+    err = ledc_fade_start(
+        g_handle->backlight_pwm->speed_mode, g_handle->backlight_pwm->channel,
+        wait_fade_done ? LEDC_FADE_WAIT_DONE : LEDC_FADE_NO_WAIT);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "<%s> ledc_fade_start failed", esp_err_to_name(err));
+        return err;
+    }
+
     return ESP_OK;
 }
 
@@ -235,7 +299,8 @@ esp_err_t pcd8544_goto_xy(uint8_t x, uint8_t y) {
     return ESP_OK;
 }
 
-esp_err_t pcd8544_putc(pcd8544_font_t font, char c) {
+esp_err_t pcd8544_putc(pcd8544_font_t font, pcd8544_pixel_color_t color,
+                       char c) {
     if (!g_handle) return ESP_ERR_INVALID_STATE;
 
     uint8_t c_height, c_width, b;
@@ -267,7 +332,7 @@ esp_err_t pcd8544_putc(pcd8544_font_t font, char c) {
 
         for (uint8_t j = 0; j < c_height; j++) {
             if ((b >> j) & 1)
-                pcd8544_draw_pixel(g_handle->_x, (g_handle->_y + j));
+                pcd8544_draw_pixel(g_handle->_x, (g_handle->_y + j), color);
         }
 
         g_handle->_x++;
@@ -278,7 +343,8 @@ esp_err_t pcd8544_putc(pcd8544_font_t font, char c) {
     return ESP_OK;
 }
 
-esp_err_t pcd8544_puts(pcd8544_font_t font, const char* format, ...) {
+esp_err_t pcd8544_puts(pcd8544_font_t font, pcd8544_pixel_color_t color,
+                       const char* format, ...) {
     esp_err_t ret = ESP_OK;
     char      temp_str[84];
     va_list   arg;
@@ -287,7 +353,7 @@ esp_err_t pcd8544_puts(pcd8544_font_t font, const char* format, ...) {
     vsnprintf(temp_str, 84, format, arg);
 
     for (uint8_t i = 0; i < strlen(temp_str); i++) {
-        ret = pcd8544_putc(font, temp_str[i]);
+        ret = pcd8544_putc(font, color, temp_str[i]);
         if (ret != ESP_OK) break;
     }
 
@@ -295,19 +361,24 @@ esp_err_t pcd8544_puts(pcd8544_font_t font, const char* format, ...) {
     return ret;
 }
 
-esp_err_t pcd8544_draw_pixel(uint8_t x, uint8_t y) {
+esp_err_t pcd8544_draw_pixel(uint8_t x, uint8_t y,
+                             pcd8544_pixel_color_t color) {
     if (!g_handle) return ESP_ERR_INVALID_STATE;
 
     if (x >= PCD8544_H_RES_MAX || y >= PCD8544_V_RES_MAX)
         return ESP_ERR_INVALID_ARG;
 
-    g_handle->buffer[x + (y / 8) * PCD8544_H_RES_MAX] |= 1 << (y % 8);
+    if (color == PCD8544_PIXEL_BLACK)
+        g_handle->buffer[x + (y / 8) * PCD8544_H_RES_MAX] |= 1 << (y % 8);
+    else
+        g_handle->buffer[x + (y / 8) * PCD8544_H_RES_MAX] &= ~(1 << (y % 8));
 
     pcd8544_update_area(x, y, x, y);
     return ESP_OK;
 }
 
-esp_err_t pcd8544_draw_line(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1) {
+esp_err_t pcd8544_draw_line(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1,
+                            pcd8544_pixel_color_t color) {
     if (!g_handle) return ESP_ERR_INVALID_STATE;
 
     uint8_t dx, dy, temp;
@@ -329,7 +400,7 @@ esp_err_t pcd8544_draw_line(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1) {
 
     if (dx == 0) {
         do {
-            pcd8544_draw_pixel(x0, y0);
+            pcd8544_draw_pixel(x0, y0, color);
             y0++;
         } while (y1 >= y0);
         return ESP_OK;
@@ -337,7 +408,7 @@ esp_err_t pcd8544_draw_line(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1) {
 
     if (dy == 0) {
         do {
-            pcd8544_draw_pixel(x0, y0);
+            pcd8544_draw_pixel(x0, y0, color);
             x0++;
         } while (x1 >= x0);
         return ESP_OK;
@@ -347,7 +418,7 @@ esp_err_t pcd8544_draw_line(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1) {
     if (dx > dy) {
         temp = 2 * dy - dx;
         while (x0 != x1) {
-            pcd8544_draw_pixel(x0, y0);
+            pcd8544_draw_pixel(x0, y0, color);
             x0++;
             if (temp > 0) {
                 y0++;
@@ -356,12 +427,12 @@ esp_err_t pcd8544_draw_line(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1) {
                 temp += 2 * dy;
             }
         }
-        pcd8544_draw_pixel(x0, y0);
+        pcd8544_draw_pixel(x0, y0, color);
 
     } else {
         temp = 2 * dx - dy;
         while (y0 != y1) {
-            pcd8544_draw_pixel(x0, y0);
+            pcd8544_draw_pixel(x0, y0, color);
             y0++;
             if (temp > 0) {
                 x0++;
@@ -370,28 +441,30 @@ esp_err_t pcd8544_draw_line(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1) {
                 temp += 2 * dy;
             }
         }
-        pcd8544_draw_pixel(x0, y0);
+        pcd8544_draw_pixel(x0, y0, color);
     }
     return ESP_OK;
 }
 
 esp_err_t pcd8544_draw_rectagle(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1,
-                                bool filled) {
+                                pcd8544_pixel_color_t color, bool filled) {
     if (!g_handle) return ESP_ERR_INVALID_STATE;
 
     if (filled) {
-        for (; y0 < y1; y0++) pcd8544_draw_line(x0, y0, x1, y0);
+        for (; y0 <= y1; y0++) pcd8544_draw_line(x0, y0, x1, y0, color);
 
     } else {
-        pcd8544_draw_line(x0, y0, x1, y0);  // Top
-        pcd8544_draw_line(x0, y0, x0, y1);  // Left
-        pcd8544_draw_line(x1, y0, x1, y1);  // Right
-        pcd8544_draw_line(x0, y1, x1, y1);  // Bottom
+        pcd8544_draw_line(x0, y0, x1, y0, color);  // Top
+        pcd8544_draw_line(x0, y0, x0, y1, color);  // Left
+        pcd8544_draw_line(x1, y0, x1, y1, color);  // Right
+        pcd8544_draw_line(x0, y1, x1, y1, color);  // Bottom
     }
+
     return ESP_OK;
 }
 
-esp_err_t pcd8544_draw_circle(uint8_t x0, uint8_t y0, uint8_t r, bool filled) {
+esp_err_t pcd8544_draw_circle(uint8_t x0, uint8_t y0, uint8_t r,
+                              pcd8544_pixel_color_t color, bool filled) {
     if (!g_handle) return ESP_ERR_INVALID_STATE;
 
     int16_t f     = 1 - r;
@@ -400,14 +473,14 @@ esp_err_t pcd8544_draw_circle(uint8_t x0, uint8_t y0, uint8_t r, bool filled) {
     int16_t x     = 0;
     int16_t y     = r;
 
-    pcd8544_draw_pixel(x0, y0 + r);
-    pcd8544_draw_pixel(x0, y0 - r);
-    pcd8544_draw_pixel(x0 + r, y0);
-    pcd8544_draw_pixel(x0 - r, y0);
+    pcd8544_draw_pixel(x0, y0 + r, color);
+    pcd8544_draw_pixel(x0, y0 - r, color);
+    pcd8544_draw_pixel(x0 + r, y0, color);
+    pcd8544_draw_pixel(x0 - r, y0, color);
 
     if (filled)
         pcd8544_draw_line(MAX(x0 - r, 0), y0, MIN(x0 + r, PCD8544_H_RES_MAX),
-                          y0);
+                          y0, color);
 
     while (x < y) {
         if (f >= 0) {
@@ -422,28 +495,48 @@ esp_err_t pcd8544_draw_circle(uint8_t x0, uint8_t y0, uint8_t r, bool filled) {
         if (filled) {
             pcd8544_draw_line(MAX(x0 - x, 0), MIN(y0 + y, PCD8544_V_RES_MAX),
                               MIN(x0 + x, PCD8544_H_RES_MAX),
-                              MIN(y0 + y, PCD8544_V_RES_MAX));
+                              MIN(y0 + y, PCD8544_V_RES_MAX), color);
             pcd8544_draw_line(MIN(x0 + x, PCD8544_H_RES_MAX), MAX(y0 - y, 0),
-                              MAX(x0 - x, 0), MAX(y0 - y, 0));
+                              MAX(x0 - x, 0), MAX(y0 - y, 0), color);
 
             pcd8544_draw_line(MIN(x0 + y, PCD8544_H_RES_MAX),
                               MIN(y0 + x, PCD8544_V_RES_MAX), MAX(x0 - y, 0),
-                              MIN(y0 + x, PCD8544_V_RES_MAX));
+                              MIN(y0 + x, PCD8544_V_RES_MAX), color);
             pcd8544_draw_line(MIN(x0 + y, PCD8544_H_RES_MAX), MAX(y0 - x, 0),
-                              MAX(x0 - y, 0), MAX(y0 - x, 0));
+                              MAX(x0 - y, 0), MAX(y0 - x, 0), color);
 
         } else {
-            pcd8544_draw_pixel(x0 + x, y0 + y);
-            pcd8544_draw_pixel(x0 - x, y0 + y);
-            pcd8544_draw_pixel(x0 + x, y0 - y);
-            pcd8544_draw_pixel(x0 - x, y0 - y);
+            pcd8544_draw_pixel(x0 + x, y0 + y, color);
+            pcd8544_draw_pixel(x0 - x, y0 + y, color);
+            pcd8544_draw_pixel(x0 + x, y0 - y, color);
+            pcd8544_draw_pixel(x0 - x, y0 - y, color);
 
-            pcd8544_draw_pixel(x0 + y, y0 + x);
-            pcd8544_draw_pixel(x0 - y, y0 + x);
-            pcd8544_draw_pixel(x0 + y, y0 - x);
-            pcd8544_draw_pixel(x0 - y, y0 - x);
+            pcd8544_draw_pixel(x0 + y, y0 + x, color);
+            pcd8544_draw_pixel(x0 - y, y0 + x, color);
+            pcd8544_draw_pixel(x0 + y, y0 - x, color);
+            pcd8544_draw_pixel(x0 - y, y0 - x, color);
         }
     }
 
+    return ESP_OK;
+}
+
+esp_err_t pcd8544_scroll(int8_t dx, int8_t dy) {
+    uint8_t temp_buffer[PCD8544_BUFFER_SIZE];
+    memcpy(temp_buffer, g_handle->buffer, PCD8544_BUFFER_SIZE);
+    memset(g_handle->buffer, 0, PCD8544_BUFFER_SIZE);
+
+    for (uint8_t x = 0; x < PCD8544_H_RES_MAX; x++) {
+        for (uint8_t y = 0; y < PCD8544_V_RES_MAX; y++) {
+            if (temp_buffer[x + (y / 8) * PCD8544_H_RES_MAX] & (1 << y % 8)) {
+                uint8_t new_x = x + dx;
+                uint8_t new_y = y + dy;
+                pcd8544_draw_pixel(new_x, new_y, PCD8544_PIXEL_BLACK);
+            }
+        }
+    }
+
+    pcd8544_update_area(0, 0, PCD8544_H_RES_MAX - 1, PCD8544_V_RES_MAX - 1);
+    pcd8544_flush();
     return ESP_OK;
 }
