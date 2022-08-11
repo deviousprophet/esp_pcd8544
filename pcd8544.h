@@ -39,8 +39,6 @@ extern "C" {
 #define PCD8544_V_RES_MAX           48
 #define PCD8544_BUFFER_SIZE         ((PCD8544_H_RES_MAX * PCD8544_V_RES_MAX) / 8)
 
-#define PCD8544_DEFAULT_CONTRAST    0x37
-
 typedef enum {
     PCD8544_FONT_3x5, /*!< Font 3x5 */
     PCD8544_FONT_5x7, /*!< Font 5x7 */

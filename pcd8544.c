@@ -148,14 +148,17 @@ esp_err_t pcd8544_init(const spi_host_device_t    spi_host,
     // Reset LCD
     pcd8544_reset();
 
-    // // Go in extended mode
-    // pcd8544_send_cmd(PCD8544_FUNCTIONSET | PCD8544_EXTENDEDINSTRUCTION);
+    // Go in extended mode
+    pcd8544_send_cmd(PCD8544_FUNCTIONSET | PCD8544_EXTENDEDINSTRUCTION);
 
-    // // LCD bias select
-    // pcd8544_send_cmd(PCD8544_SETBIAS | 0x4);
+    // LCD bias select
+    pcd8544_send_cmd(PCD8544_SETBIAS | CONFIG_PCD8544_LCD_BIAS);
 
-    // // Set VOP
-    // pcd8544_send_cmd(PCD8544_SETVOP | PCD8544_DEFAULT_CONTRAST);
+    // Set temperature
+    pcd8544_send_cmd(PCD8544_SETTEMP | CONFIG_PCD8544_LCD_TEMP);
+
+    // Set VOP
+    pcd8544_send_cmd(PCD8544_SETVOP | CONFIG_PCD8544_LCD_CONTRAST);
 
     // Normal mode
     pcd8544_send_cmd(PCD8544_FUNCTIONSET);
