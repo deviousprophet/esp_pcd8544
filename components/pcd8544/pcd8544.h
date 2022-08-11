@@ -42,27 +42,14 @@ extern "C" {
 #define PCD8544_DEFAULT_CONTRAST    0x37
 
 typedef enum {
-    PCD8544_FONT_3x5,
-    PCD8544_FONT_5x7,
+    PCD8544_FONT_3x5, /*!< Font 3x5 */
+    PCD8544_FONT_5x7, /*!< Font 5x7 */
 } pcd8544_font_t;
 
 typedef enum {
-    PCD8544_PIXEL_WHITE,
-    PCD8544_PIXEL_BLACK,
+    PCD8544_PIXEL_WHITE, /*!< Pixel color white */
+    PCD8544_PIXEL_BLACK, /*!< Pixel color black */
 } pcd8544_pixel_color_t;
-
-typedef enum {
-    PCD8544_ALIGN_CENTER,
-    PCD8544_ALIGN_LEFT,
-    PCD8544_ALIGN_RIGHT,
-    PCD8544_ALIGN_TOP,
-    PCD8544_ALIGN_BOTTOM,
-    PCD8544_ALIGN_TOP_LEFT,
-    PCD8544_ALIGN_TOP_RIGHT,
-    PCD8544_ALIGN_BOTTOM_LEFT,
-    PCD8544_ALIGN_BOTTOM_RIGHT,
-    PCD8544_ALIGN_MAX,
-} pcd8544_obj_align_t;
 
 typedef struct {
     int rst_gpio_num; /*!< GPIO used for resetting the display */
@@ -77,47 +64,231 @@ typedef struct {
     } flags;                         /*!< Extra flags to fine-tune the device */
 } pcd8544_io_config_t;
 
+/**
+ * @brief Initialize PCD8544 LCD
+ *
+ * @param[in] spi_host the SPI host used for LCD
+ *
+ * @param[in] io_config pointer of LCD gpio configuration
+ *
+ * @return
+ */
 esp_err_t pcd8544_init(const spi_host_device_t    spi_host,
                        const pcd8544_io_config_t* io_config);
 
+/**
+ * @brief Deinitialize PCD8544 LCD
+ *
+ * @return
+ */
 esp_err_t pcd8544_deinit(void);
 
+/**
+ * @brief Clear the screen
+ *
+ * @return
+ */
 esp_err_t pcd8544_clear(void);
 
+/**
+ * @brief
+ *
+ * @return
+ */
 esp_err_t pcd8544_flush(void);
 
+/**
+ * @brief
+ *
+ * @param[in] invert
+ *
+ * @return
+ */
 esp_err_t pcd8544_invert(bool invert);
 
+/**
+ * @brief
+ *
+ * @param[out] inverted
+ *
+ * @return
+ */
+esp_err_t pcd8544_is_inverted(bool* inverted);
+
+/**
+ * @brief
+ *
+ * @param[in] contrast
+ *
+ * @return
+ */
 esp_err_t pcd8544_set_contrast(uint8_t contrast);
 
+/**
+ * @brief
+ *
+ * @param[in] brightness
+ *
+ * @return
+ */
 esp_err_t pcd8544_set_backlight(uint8_t brightness);
 
+/**
+ * @brief
+ *
+ * @param[in] brightness
+ *
+ * @param[in] max_fade_time_ms
+ *
+ * @param[in] wait_fade_done
+ *
+ * @return
+ */
 esp_err_t pcd8544_set_backlight_fade(uint8_t brightness, int max_fade_time_ms,
                                      bool wait_fade_done);
 
+/**
+ * @brief
+ *
+ * @param[in] x
+ *
+ * @param[in] y
+ *
+ * @return
+ */
 esp_err_t pcd8544_goto_xy(uint8_t x, uint8_t y);
 
+/**
+ * @brief
+ *
+ * @param[in] font
+ *
+ * @param[in] color
+ *
+ * @param[in] c
+ *
+ * @return
+ */
 esp_err_t pcd8544_putc(pcd8544_font_t font, pcd8544_pixel_color_t color,
                        char c);
 
+/**
+ * @brief
+ *
+ * @param[in] font
+ *
+ * @param[in] color
+ *
+ * @param[in] format
+ *
+ * @return
+ */
 esp_err_t pcd8544_puts(pcd8544_font_t font, pcd8544_pixel_color_t color,
                        const char* format, ...)
     __attribute__((format(printf, 3, 4)));
 
+/**
+ * @brief
+ *
+ * @param[in] x
+ *
+ * @param[in] y
+ *
+ * @param[in] color
+ *
+ * @return
+ */
 esp_err_t pcd8544_draw_pixel(uint8_t x, uint8_t y, pcd8544_pixel_color_t color);
 
+/**
+ * @brief
+ *
+ * @param[in] x0
+ *
+ * @param[in] y0
+ *
+ * @param[in] x1
+ *
+ * @param[in] y1
+ *
+ * @param[in] color
+ *
+ * @return
+ */
 esp_err_t pcd8544_draw_line(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1,
                             pcd8544_pixel_color_t color);
 
+/**
+ * @brief
+ *
+ * @param[in] x0
+ *
+ * @param[in] y0
+ *
+ * @param[in] x1
+ *
+ * @param[in] y1
+ *
+ * @param[in] color
+ *
+ * @param[in] filled
+ *
+ * @return
+ */
 esp_err_t pcd8544_draw_rectagle(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1,
                                 pcd8544_pixel_color_t color, bool filled);
 
+/**
+ * @brief
+ *
+ * @param[in] x0
+ *
+ * @param[in] y0
+ *
+ * @param[in] r
+ *
+ * @param[in] color
+ *
+ * @param[in] filled
+ *
+ * @return
+ */
 esp_err_t pcd8544_draw_circle(uint8_t x0, uint8_t y0, uint8_t r,
                               pcd8544_pixel_color_t color, bool filled);
 
+/**
+ * @brief
+ *
+ * @param[in] bitmap
+ *
+ * @return
+ */
+esp_err_t pcd8544_draw_bitmap(const uint8_t* bitmap);
+
+/**
+ * @brief
+ *
+ * @param[in] dx
+ *
+ * @param[in] dy
+ *
+ * @return
+ */
 esp_err_t pcd8544_scroll(int8_t dx, int8_t dy);
 
-esp_err_t pcd8544_scroll_smooth(uint8_t dx, uint8_t dy, int max_scroll_time_ms);
+// /**
+//  * @brief
+//  *
+//  * @param[in] dx
+//  *
+//  * @param[in] dy
+//  *
+//  * @param[in] max_scroll_time_ms
+//  *
+//  * @return
+//  */
+// esp_err_t pcd8544_scroll_smooth(uint8_t dx, uint8_t dy, int
+// max_scroll_time_ms);
 
 #ifdef __cplusplus
 }

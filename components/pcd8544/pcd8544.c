@@ -21,6 +21,7 @@ typedef struct {
     uint8_t                update_ymax;
     uint8_t                _x;
     uint8_t                _y;
+    bool                   is_inverted;
     ledc_channel_config_t* backlight_pwm;
     pcd8544_io_config_t*   io;
     spi_device_handle_t    spi_handle;
@@ -93,7 +94,8 @@ esp_err_t pcd8544_init(const spi_host_device_t    spi_host,
         return ESP_ERR_INVALID_ARG;
     }
 
-    g_handle     = calloc(1, sizeof(pcd8544_handle_t));
+    g_handle = calloc(1, sizeof(pcd8544_handle_t));
+    memset(g_handle, 0, sizeof(pcd8544_handle_t));
     g_handle->io = calloc(1, sizeof(pcd8544_io_config_t));
     memcpy(g_handle->io, io_config, sizeof(pcd8544_io_config_t));
 
@@ -183,6 +185,8 @@ esp_err_t pcd8544_deinit(void) {
     free(g_handle->backlight_pwm);
     free(g_handle->io);
     free(g_handle);
+
+    ESP_LOGI(TAG, "Successfully deinitialized");
     return ESP_OK;
 }
 
@@ -229,6 +233,12 @@ esp_err_t pcd8544_invert(bool invert) {
     return pcd8544_send_cmd(
         PCD8544_DISPLAYCONTROL |
         (invert ? PCD8544_DISPLAYINVERTED : PCD8544_DISPLAYNORMAL));
+}
+
+esp_err_t pcd8544_is_inverted(bool* inverted) {
+    if (!g_handle) return ESP_ERR_INVALID_STATE;
+    *inverted = g_handle->is_inverted;
+    return ESP_OK;
 }
 
 esp_err_t pcd8544_set_contrast(uint8_t contrast) {
@@ -521,6 +531,12 @@ esp_err_t pcd8544_draw_circle(uint8_t x0, uint8_t y0, uint8_t r,
     return ESP_OK;
 }
 
+esp_err_t pcd8544_draw_bitmap(const uint8_t* bitmap) {
+    memcpy(g_handle->buffer, bitmap, PCD8544_BUFFER_SIZE);
+    pcd8544_update_area(0, 0, PCD8544_H_RES_MAX - 1, PCD8544_V_RES_MAX - 1);
+    return ESP_OK;
+}
+
 esp_err_t pcd8544_scroll(int8_t dx, int8_t dy) {
     uint8_t temp_buffer[PCD8544_BUFFER_SIZE];
     memcpy(temp_buffer, g_handle->buffer, PCD8544_BUFFER_SIZE);
@@ -538,5 +554,11 @@ esp_err_t pcd8544_scroll(int8_t dx, int8_t dy) {
 
     pcd8544_update_area(0, 0, PCD8544_H_RES_MAX - 1, PCD8544_V_RES_MAX - 1);
     pcd8544_flush();
+    return ESP_OK;
+}
+
+esp_err_t pcd8544_scroll_smooth(uint8_t dx, uint8_t dy,
+                                int max_scroll_time_ms) {
+    // TODO: smooth scrolling animation
     return ESP_OK;
 }
