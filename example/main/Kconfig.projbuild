@@ -1,0 +1,62 @@
+menu "Example Configuration"
+    
+    config RST_PIN_NUM
+        int "LCD RST gpio number"
+        range -1 33
+        default 5
+        help
+            Set the gpio number for RST line.
+
+    config CE_PIN_NUM
+        int "LCD CE gpio number"
+        range -1 33
+        default 18
+        help
+            Set the gpio number for CE line.
+
+    config DC_PIN_NUM
+        int "LCD DC gpio number"
+        range -1 33
+        default 19
+        help
+            Set the gpio number for DC line.
+
+    config DIN_PIN_NUM
+        int "LCD DIN gpio number"
+        range -1 33
+        default 21
+        help
+            Set the gpio number for DIN line.
+
+    config CLK_PIN_NUM
+        int "LCD CLK gpio number"
+        range -1 33
+        default 22
+        help
+            Set the gpio number for CLK line.
+
+    config BKL_PIN_NUM
+        int "LCD backlight gpio number"
+        range -1 33
+        default 23
+        help
+            Set the gpio number for backlight LED.
+
+    choice LCD_HOST
+        prompt "LCD spi host"
+        default LCD_SPI2_HOST
+        help
+            SPI host to be used by LCD.
+
+        config LCD_SPI2_HOST
+            bool "SPI2"
+        config LCD_SPI3_HOST
+            bool "SPI3"
+    endchoice
+
+    config LCD_HOST
+        int
+        default 1 if LCD_SPI2_HOST
+        default 2 if LCD_SPI3_HOST
+
+endmenu
