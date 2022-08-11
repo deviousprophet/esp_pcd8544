@@ -1,32 +1,34 @@
-# _Sample project_
+# PCD8544 LCD Driver Component for ESP32
 
-(See the README.md file in the upper level 'examples' directory for more information about examples.)
+This is ESP-IDF component for PCD8544 LCD controller. This lcd has been used in Nokia 5110/3310 phones.
 
-This is the simplest buildable example. The example is used by command `idf.py create-project`
-that copies the project to user specified path and set it's name. For more information follow the [docs page](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html#start-a-new-project)
+![pcd8544_lcd](lcd.jpg)
 
+## Main Features:
+- Display string with 2 font sizes 5 x 7 and 3 x 5
+- Graphic API to scroll display and draw lines, rectangles, circles and 84 x 48 bitmap
+- Algorithm to update only changed area of display to increase speed
 
+## Prerequisites
 
-## How to use example
-We encourage the users to use the example as a template for the new projects.
-A recommended way is to follow the instructions on a [docs page](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html#start-a-new-project).
+- ESP-IDF Framework
 
-## Example folder contents
+## Use PCD8544 component in your ESP-IDF project
 
-The project **sample_project** contains one source file in C language [main.c](main/main.c). The file is located in folder [main](main).
+Simply clone PCD8544 component into your `project_root/components` directory and it will be automatically integrated into the project.
 
-ESP-IDF projects are built using CMake. The project build configuration is contained in `CMakeLists.txt`
-files that provide set of directives and instructions describing the project's source files and targets
-(executable, library, or both). 
-
-Below is short explanation of remaining files in the project folder.
+If the project is a git repository you can include LVGL as a git submodule:
 
 ```
-├── CMakeLists.txt
-├── main
-│   ├── CMakeLists.txt
-│   └── main.c
-└── README.md                  This is the file you are currently reading
+git submodule add https://github.com/deviousprophet/esp_pcd8544.git components/pcd8544
 ```
-Additionally, the sample project contains Makefile and component.mk files, used for the legacy Make based build system. 
-They are not used or needed when building with CMake and idf.py.
+
+> It is recommended to add the component as a submodule in your IDF project's git repo.
+
+## Configure
+
+Run `idf.py menuconfig` and go to `Component config` -> `PCD8544 LCD Driver` to configure LCD driver.
+
+## Demo Example
+
+Check out [example](./example/)
