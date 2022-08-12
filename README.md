@@ -6,7 +6,7 @@ This is ESP-IDF component for PCD8544 LCD controller. This lcd has been used in 
 
 ## Main Features:
 - Display string with 2 font sizes 5 x 7 and 3 x 5
-- Graphic API to scroll display and draw lines, rectangles, circles and 84 x 48 bitmap
+- Graphic API to scroll display and draw lines, rectangles, circles and 84 x 48 bitmap image
 - Algorithm to update only changed area of display to increase speed
 
 ## Prerequisites

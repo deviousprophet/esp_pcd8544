@@ -36,20 +36,20 @@ void lcd_spi_pre_transfer_callback(spi_transaction_t* t) {
     gpio_set_level(g_handle->io->dc_gpio_num, dc);
 }
 
-esp_err_t pcd8544_send_cmd(uint8_t cmd) {
+void pcd8544_send_cmd(uint8_t cmd) {
     spi_transaction_t t = {0};
     t.length            = 8;         // Command is 8 bits
     t.tx_buffer         = &cmd;      // Command
     t.user              = (void*)0;  // D/C needs to be set to 0
-    return spi_device_polling_transmit(g_handle->spi_handle, &t);
+    spi_device_polling_transmit(g_handle->spi_handle, &t);
 }
 
-esp_err_t pcd8544_send_data(uint8_t data) {
+void pcd8544_send_data(uint8_t data) {
     spi_transaction_t t = {0};
     t.length            = 8;         // Data is 8 bits
     t.tx_buffer         = &data;     // Data
     t.user              = (void*)1;  // D/C needs to be set to 1
-    return spi_device_polling_transmit(g_handle->spi_handle, &t);
+    spi_device_polling_transmit(g_handle->spi_handle, &t);
 }
 
 void pcd8544_update_area(uint8_t xMin, uint8_t yMin, uint8_t xMax,
@@ -108,9 +108,7 @@ esp_err_t pcd8544_init(const spi_host_device_t    spi_host,
                                                   // callback to handle D/C line
     };
 
-    ESP_ERROR_CHECK(
-        spi_bus_add_device(spi_host, &devcfg, &g_handle->spi_handle));
-
+    spi_bus_add_device(spi_host, &devcfg, &g_handle->spi_handle);
     gpio_set_direction(io_config->rst_gpio_num, GPIO_MODE_OUTPUT);
     gpio_set_direction(io_config->dc_gpio_num, GPIO_MODE_OUTPUT);
 
@@ -200,9 +198,8 @@ esp_err_t pcd8544_clear(void) {
     memset(g_handle->buffer, 0, PCD8544_BUFFER_SIZE);
 
     pcd8544_update_area(0, 0, PCD8544_H_RES_MAX - 1, PCD8544_V_RES_MAX - 1);
-    pcd8544_flush();
 
-    return ESP_OK;
+    return pcd8544_flush();
 }
 
 esp_err_t pcd8544_flush(void) {
@@ -232,10 +229,9 @@ esp_err_t pcd8544_flush(void) {
 
 esp_err_t pcd8544_invert(bool invert) {
     if (!g_handle) return ESP_ERR_INVALID_STATE;
-
-    return pcd8544_send_cmd(
-        PCD8544_DISPLAYCONTROL |
-        (invert ? PCD8544_DISPLAYINVERTED : PCD8544_DISPLAYNORMAL));
+    pcd8544_send_cmd(PCD8544_DISPLAYCONTROL | (invert ? PCD8544_DISPLAYINVERTED
+                                                      : PCD8544_DISPLAYNORMAL));
+    return ESP_OK;
 }
 
 esp_err_t pcd8544_is_inverted(bool* inverted) {
@@ -261,46 +257,29 @@ esp_err_t pcd8544_set_contrast(uint8_t contrast) {
 }
 
 esp_err_t pcd8544_set_backlight(uint8_t brightness) {
-    esp_err_t err;
+    if (!g_handle) return ESP_ERR_INVALID_STATE;
 
-    err = ledc_set_duty(g_handle->backlight_pwm->speed_mode,
-                        g_handle->backlight_pwm->channel,
-                        (MIN(brightness, 100) * 8192) / 100);
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "<%s> ledc_set_duty failed", esp_err_to_name(err));
-        return err;
-    }
+    ledc_set_duty(g_handle->backlight_pwm->speed_mode,
+                  g_handle->backlight_pwm->channel,
+                  (MIN(brightness, 100) * 8192) / 100);
 
-    err = ledc_update_duty(g_handle->backlight_pwm->speed_mode,
-                           g_handle->backlight_pwm->channel);
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "<%s> ledc_update_duty failed", esp_err_to_name(err));
-        return err;
-    }
+    ledc_update_duty(g_handle->backlight_pwm->speed_mode,
+                     g_handle->backlight_pwm->channel);
 
     return ESP_OK;
 }
 
 esp_err_t pcd8544_set_backlight_fade(uint8_t brightness, int max_fade_time_ms,
                                      bool wait_fade_done) {
-    esp_err_t err;
+    if (!g_handle) return ESP_ERR_INVALID_STATE;
 
-    err = ledc_set_fade_with_time(
+    ledc_set_fade_with_time(
         g_handle->backlight_pwm->speed_mode, g_handle->backlight_pwm->channel,
         (MIN(brightness, 100) * 8192) / 100, max_fade_time_ms);
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "<%s> ledc_set_fade_with_time failed",
-                 esp_err_to_name(err));
-        return err;
-    }
 
-    err = ledc_fade_start(
-        g_handle->backlight_pwm->speed_mode, g_handle->backlight_pwm->channel,
-        wait_fade_done ? LEDC_FADE_WAIT_DONE : LEDC_FADE_NO_WAIT);
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "<%s> ledc_fade_start failed", esp_err_to_name(err));
-        return err;
-    }
+    ledc_fade_start(g_handle->backlight_pwm->speed_mode,
+                    g_handle->backlight_pwm->channel,
+                    wait_fade_done ? LEDC_FADE_WAIT_DONE : LEDC_FADE_NO_WAIT);
 
     return ESP_OK;
 }

@@ -63,82 +63,113 @@ typedef struct {
 } pcd8544_io_config_t;
 
 /**
- * @brief Initialize PCD8544 LCD
+ * @brief Initialize the display and enter into normal mode.
  *
- * @param[in] spi_host the SPI host used for LCD
+ * @param[in] spi_host The SPI host used for LCD.
  *
- * @param[in] io_config pointer of LCD gpio configuration
+ * @param[in] io_config Pointer of LCD gpio configuration.
  *
  * @return
+ *      - ESP_OK on success.
+ *      - ESP_ERR_INVALID_STATE if the display has already initialized.
+ *      - ESP_ERR_INVALID_ARG if parameter is invalid.
  */
 esp_err_t pcd8544_init(const spi_host_device_t    spi_host,
                        const pcd8544_io_config_t* io_config);
 
 /**
- * @brief Deinitialize PCD8544 LCD
+ * @brief Deinitialize the display.
  *
  * @return
+ *      - ESP_OK on success.
+ *      - ESP_ERR_INVALID_STATE if:
+ *              1. The display has already deinitialized.
+ *              2. The display was not initialized yet.
  */
 esp_err_t pcd8544_deinit(void);
 
 /**
- * @brief Clear the screen
+ * @brief Clear the display.
  *
  * @return
+ *      - ESP_OK on success.
+ *      - ESP_ERR_INVALID_STATE if:
+ *              1. The display has already deinitialized.
+ *              2. The display was not initialized yet.
  */
 esp_err_t pcd8544_clear(void);
 
 /**
- * @brief
+ * @brief Update the display by flushing buffer.
  *
  * @return
+ *      - ESP_OK on success.
+ *      - ESP_ERR_INVALID_STATE if:
+ *              1. The display has already deinitialized.
+ *              2. The display was not initialized yet.
  */
 esp_err_t pcd8544_flush(void);
 
 /**
- * @brief
+ * @brief Set display invert control.
  *
- * @param[in] invert
+ * @param[in] invert Whether to invert the display color.
  *
  * @return
+ *      - ESP_OK on success.
+ *      - ESP_ERR_INVALID_STATE if:
+ *              1. The display has already deinitialized.
+ *              2. The display was not initialized yet.
  */
 esp_err_t pcd8544_invert(bool invert);
 
 /**
- * @brief
+ * @brief Check if the display is inverted.
  *
- * @param[out] inverted
+ * @param[out] inverted Pointer of the output result.
  *
  * @return
+ *      - ESP_OK on success.
+ *      - ESP_ERR_INVALID_STATE if:
+ *              1. The display has already deinitialized.
+ *              2. The display was not initialized yet.
  */
 esp_err_t pcd8544_is_inverted(bool* inverted);
 
 /**
- * @brief
+ * @brief Set the contrast level.
  *
- * @param[in] contrast
+ * @param[in] contrast Contrast value to be set (range: 0x00 ~ 0x7F).
  *
  * @return
+ *      - ESP_OK on success.
+ *      - ESP_ERR_INVALID_STATE if:
+ *              1. The display has already deinitialized.
+ *              2. The display was not initialized yet.
  */
 esp_err_t pcd8544_set_contrast(uint8_t contrast);
 
 /**
- * @brief
+ * @brief Set backlight brightness.
  *
- * @param[in] brightness
+ * @param[in] brightness Brightness percentage (range: 0 ~ 100).
  *
  * @return
+ *      - ESP_OK on success.
+ *      - ESP_ERR_INVALID_STATE if:
+ *              1. The display has already deinitialized.
+ *              2. The display was not initialized yet.
  */
 esp_err_t pcd8544_set_backlight(uint8_t brightness);
 
 /**
- * @brief
+ * @brief Backlight fade function, with a limited time.
  *
- * @param[in] brightness
+ * @param[in] brightness Brightness percentage (range 0 ~ 100)
  *
- * @param[in] max_fade_time_ms
+ * @param[in] max_fade_time_ms The maximum time of the fading in miliseconds.
  *
- * @param[in] wait_fade_done
+ * @param[in] wait_fade_done Whether to block until fading done.
  *
  * @return
  */
@@ -146,131 +177,172 @@ esp_err_t pcd8544_set_backlight_fade(uint8_t brightness, int max_fade_time_ms,
                                      bool wait_fade_done);
 
 /**
- * @brief
+ * @brief Set the cursor coordinate.
  *
- * @param[in] x
+ * @note The origin of coordinates (x = 0, y = 0) is at the display's top left.
  *
- * @param[in] y
+ * @param[in] x X-coordinates (horizontal lines).
+ *
+ * @param[in] y Y-coordinates (vertical lines).
  *
  * @return
+ *      - ESP_OK on success.
+ *      - ESP_ERR_INVALID_STATE if:
+ *              1. The display has already deinitialized.
+ *              2. The display was not initialized yet.
  */
 esp_err_t pcd8544_goto_xy(uint8_t x, uint8_t y);
 
 /**
- * @brief
+ * @brief Draw a character into the buffer.
  *
- * @param[in] font
+ * @param[in] font Font size.
  *
- * @param[in] color
+ * @param[in] color Pixel color.
  *
- * @param[in] c
+ * @param[in] c The character value.
  *
  * @return
+ *      - ESP_OK on success.
+ *      - ESP_ERR_INVALID_STATE if:
+ *              1. The display has already deinitialized.
+ *              2. The display was not initialized yet.
  */
 esp_err_t pcd8544_putc(pcd8544_font_t font, pcd8544_pixel_color_t color,
                        char c);
 
 /**
- * @brief
+ * @brief Draw a string into the buffer.
  *
- * @param[in] font
+ * @param[in] font Font size.
  *
- * @param[in] color
+ * @param[in] color Pixel color.
  *
- * @param[in] format
+ * @param[in] format Format of the string. See printf().
  *
  * @return
+ *      - ESP_OK on success.
+ *      - ESP_ERR_INVALID_STATE if:
+ *              1. The display has already deinitialized.
+ *              2. The display was not initialized yet.
  */
 esp_err_t pcd8544_puts(pcd8544_font_t font, pcd8544_pixel_color_t color,
                        const char* format, ...)
     __attribute__((format(printf, 3, 4)));
 
 /**
- * @brief
+ * @brief Draw a pixel into the buffer.
  *
- * @param[in] x
+ * @param[in] x X-coordinates (horizontal lines).
  *
- * @param[in] y
+ * @param[in] y Y-coordinates (vertical lines).
  *
- * @param[in] color
+ * @param[in] color Pixel color.
  *
  * @return
+ *      - ESP_OK on success.
+ *      - ESP_ERR_INVALID_ARG if the coordinates is out of display resolution.
+ *      - ESP_ERR_INVALID_STATE if:
+ *              1. The display has already deinitialized.
+ *              2. The display was not initialized yet.
  */
 esp_err_t pcd8544_draw_pixel(uint8_t x, uint8_t y, pcd8544_pixel_color_t color);
 
 /**
- * @brief
+ * @brief Draw a line into the buffer.
  *
- * @param[in] x0
+ * @param[in] x0 The start X-coordinates (horizontal lines).
  *
- * @param[in] y0
+ * @param[in] y0 The start Y-coordinates (vertical lines).
  *
- * @param[in] x1
+ * @param[in] x1 The end X-coordinates (horizontal lines).
  *
- * @param[in] y1
+ * @param[in] y1 The end Y-coordinates (vertical lines).
  *
- * @param[in] color
+ * @param[in] color Pixel color.
  *
  * @return
+ *      - ESP_OK on success.
+ *      - ESP_ERR_INVALID_STATE if:
+ *              1. The display has already deinitialized.
+ *              2. The display was not initialized yet.
  */
 esp_err_t pcd8544_draw_line(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1,
                             pcd8544_pixel_color_t color);
 
 /**
- * @brief
+ * @brief Draw a rectangle into the buffer.
  *
- * @param[in] x0
+ * @param[in] x0 The start X-coordinates (horizontal lines).
  *
- * @param[in] y0
+ * @param[in] y0 The start Y-coordinates (vertical lines).
  *
- * @param[in] x1
+ * @param[in] x1 The end X-coordinates (horizontal lines).
  *
- * @param[in] y1
+ * @param[in] y1 The end Y-coordinates (vertical lines).
  *
- * @param[in] color
+ * @param[in] color Pixel color.
  *
- * @param[in] filled
+ * @param[in] filled Whether to fill the shape.
  *
  * @return
+ *      - ESP_OK on success.
+ *      - ESP_ERR_INVALID_STATE if:
+ *              1. The display has already deinitialized.
+ *              2. The display was not initialized yet.
  */
 esp_err_t pcd8544_draw_rectagle(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1,
                                 pcd8544_pixel_color_t color, bool filled);
 
 /**
- * @brief
+ * @brief Draw a circle into the buffer.
  *
- * @param[in] x0
+ * @param[in] x0 Circle center X-coordinates (horizontal lines).
  *
- * @param[in] y0
+ * @param[in] y0 Circle center Y-coordinates (vertical lines).
  *
- * @param[in] r
+ * @param[in] r Circle radius in pixels.
  *
- * @param[in] color
+ * @param[in] color Pixel color.
  *
- * @param[in] filled
+ * @param[in] filled Whether to fill the shape.
  *
  * @return
+ *      - ESP_OK on success.
+ *      - ESP_ERR_INVALID_STATE if:
+ *              1. The display has already deinitialized.
+ *              2. The display was not initialized yet.
  */
 esp_err_t pcd8544_draw_circle(uint8_t x0, uint8_t y0, uint8_t r,
                               pcd8544_pixel_color_t color, bool filled);
 
 /**
- * @brief
+ * @brief Draw a bitmap image into the buffer.
  *
- * @param[in] bitmap
+ * @note 84 x 48 pixels bitmap image buffer is recommended.
+ *
+ * @param[in] bitmap The bitmap image buffer.
  *
  * @return
+ *      - ESP_OK on success.
+ *      - ESP_ERR_INVALID_STATE if:
+ *              1. The display has already deinitialized.
+ *              2. The display was not initialized yet.
  */
 esp_err_t pcd8544_draw_bitmap(const uint8_t* bitmap);
 
 /**
- * @brief
+ * @brief Scroll the display by creating a new buffer and moving each pixel.
  *
- * @param[in] dx
+ * @param[in] dx The x offset, can be negative to scroll backwards.
  *
- * @param[in] dy
+ * @param[in] dy The y offset, can be negative to scroll backwards.
  *
  * @return
+ *      - ESP_OK on success.
+ *      - ESP_ERR_INVALID_STATE if:
+ *              1. The display has already deinitialized.
+ *              2. The display was not initialized yet.
  */
 esp_err_t pcd8544_scroll(int8_t dx, int8_t dy);
 
