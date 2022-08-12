@@ -2,12 +2,10 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "pcd8544.h"
-#include "pcd8544_fonts.h"
-#include "sys/param.h"
 
 static const char* TAG = "pcd8544_demo";
 
-#define DEMO_TIME_MS   2000  // Each demo will take 2 seconds long to run
+#define DEMO_TIME_MS   3000  // Each demo will take 3 seconds long to run
 
 // To speed up transfers, every SPI transfer sends a bunch of lines. This define
 // specifies how many. More means more memory use, but less overhead for setting
