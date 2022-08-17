@@ -27,16 +27,16 @@ typedef struct {
     spi_device_handle_t    spi_handle;
 } pcd8544_handle_t;
 
-pcd8544_handle_t* g_handle = NULL;
+static pcd8544_handle_t* g_handle = NULL;
 
 // This function is called (in irq context!) just before a transmission starts.
 // It will set the D/C line to the value indicated in the user field.
-void lcd_spi_pre_transfer_callback(spi_transaction_t* t) {
+static void lcd_spi_pre_transfer_callback(spi_transaction_t* t) {
     int dc = (int)t->user;
     gpio_set_level(g_handle->io->dc_gpio_num, dc);
 }
 
-void pcd8544_send_cmd(uint8_t cmd) {
+static void pcd8544_send_cmd(uint8_t cmd) {
     spi_transaction_t t = {0};
     t.length            = 8;         // Command is 8 bits
     t.tx_buffer         = &cmd;      // Command
@@ -44,7 +44,7 @@ void pcd8544_send_cmd(uint8_t cmd) {
     spi_device_polling_transmit(g_handle->spi_handle, &t);
 }
 
-void pcd8544_send_data(uint8_t data) {
+static void pcd8544_send_data(uint8_t data) {
     spi_transaction_t t = {0};
     t.length            = 8;         // Data is 8 bits
     t.tx_buffer         = &data;     // Data
@@ -52,8 +52,8 @@ void pcd8544_send_data(uint8_t data) {
     spi_device_polling_transmit(g_handle->spi_handle, &t);
 }
 
-void pcd8544_update_area(uint8_t xMin, uint8_t yMin, uint8_t xMax,
-                         uint8_t yMax) {
+static void pcd8544_update_area(uint8_t xMin, uint8_t yMin, uint8_t xMax,
+                                uint8_t yMax) {
     g_handle->update_xmin = MIN(xMin, g_handle->update_xmin);
     g_handle->update_ymin = MIN(yMin, g_handle->update_ymin);
     g_handle->update_xmax = MAX(xMax, g_handle->update_xmax);
@@ -539,8 +539,8 @@ esp_err_t pcd8544_scroll(int8_t dx, int8_t dy) {
     return ESP_OK;
 }
 
-esp_err_t pcd8544_scroll_smooth(uint8_t dx, uint8_t dy,
-                                int max_scroll_time_ms) {
-    // TODO: smooth scrolling animation
-    return ESP_OK;
-}
+// esp_err_t pcd8544_scroll_smooth(uint8_t dx, uint8_t dy,
+//                                 int max_scroll_time_ms) {
+//     // TODO: smooth scrolling animation
+//     return ESP_OK;
+// }
